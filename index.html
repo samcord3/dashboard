@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workshop Access Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0a0c0f;--surface:#111318;--surface2:#181c23;
+    --border:#1e2330;--border2:#2a3040;--text:#c8d0e0;--muted:#4a5568;
+    --accent:#00d4ff;--green:#00e87a;--red:#ff3b5c;--amber:#ffb020;
+    --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;font-size:14px}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);pointer-events:none;z-index:1000}
+
+  header{border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;background:var(--bg);z-index:100}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo-icon{width:28px;height:28px;border:1.5px solid var(--accent);border-radius:4px;display:flex;align-items:center;justify-content:center}
+  .logo-icon::after{content:'';width:10px;height:10px;border:1.5px solid var(--accent);border-radius:50%;box-shadow:0 0 8px var(--accent)}
+  .logo-text{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);letter-spacing:.05em;text-transform:uppercase}
+  .logo-sub{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono)}
+  .header-right{display:flex;align-items:center;gap:18px}
+  .status-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:background .3s}
+  .status-dot.connected{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .icon-btn{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:5px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;display:flex;align-items:center;gap:6px}
+  .icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .icon-btn.on{border-color:var(--green);color:var(--green)}
+
+  main{padding:32px;max-width:1400px;margin:0 auto}
+  .page-title{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+  .section-heading{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--text);margin-bottom:24px}
+
+  /* ---- STAT BAR ---- */
+  .stat-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;position:relative;overflow:hidden}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.4}
+  .stat-label{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+  .stat-value{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--text);line-height:1}
+  .stat-value.green{color:var(--green)}.stat-value.red{color:var(--red)}
+  .stat-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;letter-spacing:.04em}
+
+  /* ---- QUICK ADD ---- */
+  .quick-add{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .quick-add-label{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-right:4px}
+  .machine-pick{display:flex;gap:6px;flex-wrap:wrap}
+  .machine-pick label{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--muted);padding:5px 9px;border:1px solid var(--border2);border-radius:4px;cursor:pointer;transition:all .15s}
+  .machine-pick label:has(input:checked){border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.06)}
+  .machine-pick input{display:none}
+
+  /* ---- SEARCH ---- */
+  .search-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .search-wrap{position:relative;flex:1;min-width:240px;max-width:380px}
+  .search-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 14px 9px 34px;outline:none;transition:border-color .15s}
+  .search-input::placeholder{color:var(--muted)}
+  .search-input:focus{border-color:var(--accent)}
+  .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
+
+  /* ---- MACHINE GRID ---- */
+  .machines-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:32px}
+  .machine-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .machine-header{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .machine-header-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+  .machine-name{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;cursor:text;padding:2px 4px;border-radius:3px;transition:background .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .machine-name:hover{background:rgba(0,212,255,.08)}
+  .machine-name-input{background:var(--bg);border:1px solid var(--accent);color:var(--text);font-family:var(--mono);font-size:13px;font-weight:600;padding:2px 6px;border-radius:3px;outline:none;width:100%;text-transform:uppercase}
+  .machine-hb{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .hb-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+  .hb-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+  .hb-dot.amber{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+  .hb-dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+  .machine-count{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  .machine-body{padding:8px 20px;flex:1;min-height:80px}
+
+  .uid-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);animation:fadeIn .2s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+  .uid-row:last-child{border-bottom:none}
+
+  .avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;flex-shrink:0;letter-spacing:.02em}
+  .uid-info{flex:1;min-width:0}
+  .uid-person{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text;padding:1px 3px;border-radius:3px;transition:background .15s}
+  .uid-person:hover{background:rgba(0,212,255,.06)}
+  .uid-person-input{background:var(--bg);border:1px solid var(--accent);color:var(--text);font-family:var(--sans);font-size:13px;padding:1px 4px;border-radius:3px;outline:none;width:100%}
+  .uid-hex{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em;margin-top:2px}
+
+  .toggle-wrap{position:relative;width:36px;height:20px;flex-shrink:0}
+  .toggle-wrap input{opacity:0;width:0;height:0;position:absolute}
+  .toggle-track{position:absolute;inset:0;background:var(--border2);border-radius:10px;cursor:pointer;transition:background .2s;border:1px solid var(--border2)}
+  .toggle-track::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;background:var(--muted);border-radius:50%;transition:transform .2s,background .2s}
+  .toggle-wrap input:checked+.toggle-track{background:rgba(0,232,122,.2);border-color:var(--green)}
+  .toggle-wrap input:checked+.toggle-track::after{transform:translateX(16px);background:var(--green);box-shadow:0 0 6px var(--green)}
+
+  .btn-delete{background:none;border:1px solid transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:16px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all .15s;line-height:1;padding-bottom:2px;flex-shrink:0}
+  .btn-delete:hover{color:var(--red);border-color:var(--red);background:rgba(255,59,92,.08)}
+
+  .add-uid-form{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);background:var(--surface2);flex-wrap:wrap}
+  .input-uid{flex:1;min-width:80px;background:var(--bg);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;text-transform:uppercase;letter-spacing:.05em;outline:none;transition:border-color .15s}
+  .input-uid::placeholder{color:var(--muted);text-transform:none;letter-spacing:0}
+  .input-uid:focus{border-color:var(--accent)}
+  .input-name{flex:1.5;min-width:100px;background:var(--bg);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:12px;padding:7px 10px;outline:none;transition:border-color .15s}
+  .input-name::placeholder{color:var(--muted)}
+  .input-name:focus{border-color:var(--accent)}
+  .btn-add{background:var(--accent);color:var(--bg);border:none;border-radius:5px;font-family:var(--mono);font-size:11px;font-weight:600;padding:7px 14px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:opacity .15s;white-space:nowrap}
+  .btn-add:hover{opacity:.85}
+  .empty-state{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:24px 0}
+
+  /* ---- TABS ---- */
+  .tabs-row{display:flex;border-bottom:1px solid var(--border)}
+  .tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:var(--mono);font-size:11px;padding:12px 20px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;transition:all .15s;margin-bottom:-1px}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab-btn:hover:not(.active){color:var(--text)}
+
+  /* ---- BOTTOM SECTION ---- */
+  .bottom-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:40px}
+  .section-header{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap}
+  .filter-btn{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s}
+  .filter-btn.active,.filter-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .filter-group{display:flex;align-items:center;gap:6px}
+  .filter-group-label{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-right:2px}
+  .action-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+  .log-table{width:100%;border-collapse:collapse}
+  .log-table th{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:10px 24px;border-bottom:1px solid var(--border);font-weight:500;user-select:none}
+  .log-table th.sortable{cursor:pointer;transition:color .15s}
+  .log-table th.sortable:hover{color:var(--accent)}
+  .log-table th .sort-arr{display:inline-block;margin-left:4px;opacity:.4}
+  .log-table th.sort-active{color:var(--accent)}
+  .log-table th.sort-active .sort-arr{opacity:1}
+  .log-table td{padding:11px 24px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+  .log-table tr:last-child td{border-bottom:none}
+  .log-table tr:hover td{background:var(--surface2)}
+
+  .log-person-wrap{display:flex;align-items:center;gap:10px}
+  .log-person{font-size:13px;color:var(--text);font-weight:500}
+  .log-uid-sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em;margin-top:2px}
+  .log-machine{font-family:var(--mono);font-size:11px;color:var(--accent)}
+  .log-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .log-time-rel{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;opacity:.8}
+
+  .badge{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
+  .badge-granted{background:rgba(0,232,122,.12);color:var(--green);border:1px solid rgba(0,232,122,.25)}
+  .badge-denied{background:rgba(255,59,92,.12);color:var(--red);border:1px solid rgba(255,59,92,.25)}
+  .section-empty{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:40px}
+
+  /* ---- CLEAR LOGS ---- */
+  .btn-clear-logs{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;white-space:nowrap}
+  .btn-clear-logs:hover{border-color:var(--red);color:var(--red);background:rgba(255,59,92,.08)}
+  .btn-export{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;white-space:nowrap}
+  .btn-export:hover{border-color:var(--green);color:var(--green);background:rgba(0,232,122,.08)}
+
+  /* ---- CLEAR LOGS MODAL ---- */
+  .clear-modal-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+  .clear-opt{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border2);border-radius:6px;cursor:pointer;transition:border-color .15s}
+  .clear-opt:hover{border-color:var(--red)}
+  .clear-opt input{accent-color:var(--red);width:14px;height:14px;cursor:pointer}
+  .clear-opt-label{font-family:var(--mono);font-size:12px;color:var(--text)}
+  .clear-opt-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+
+  /* ---- USAGE CARDS ---- */
+  .usage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;padding:20px 24px}
+  .usage-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 18px}
+  .usage-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .usage-card-body{flex:1;min-width:0}
+  .usage-person{font-size:14px;font-weight:500;color:var(--text);margin-bottom:3px}
+  .usage-uid-sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em}
+  .usage-stats{display:flex;gap:12px;margin-bottom:10px}
+  .usage-stat .num{font-family:var(--mono);font-size:20px;font-weight:600;display:block;line-height:1.2}
+  .usage-stat .lbl{color:var(--muted);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+  .usage-stat.g .num{color:var(--green)}
+  .usage-stat.r .num{color:var(--red)}
+  .usage-last{font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+  /* ---- CHARTS ---- */
+  .charts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;padding:20px 24px}
+  .chart-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:18px 20px}
+  .chart-title{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+  .chart-card canvas{max-height:260px}
+  @media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+
+  /* ---- MODAL ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+  .modal-overlay.open{opacity:1;pointer-events:all}
+  .modal{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:28px;width:400px;transform:scale(.95);transition:transform .2s}
+  .modal-overlay.open .modal{transform:scale(1)}
+  .modal-title{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--red);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+  .modal-body{font-size:13px;color:var(--text);line-height:1.6;margin-bottom:24px}
+  .modal-uid{font-family:var(--mono);color:var(--accent)}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end}
+  .btn-cancel{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 16px;border-radius:5px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s}
+  .btn-cancel:hover{border-color:var(--muted);color:var(--text)}
+  .btn-confirm-delete{background:rgba(255,59,92,.15);border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:11px;padding:8px 16px;border-radius:5px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s}
+  .btn-confirm-delete:hover{background:rgba(255,59,92,.25)}
+
+  /* ---- DENY ALERT ---- */
+  .deny-alert{position:fixed;top:72px;left:50%;transform:translateX(-50%) translateY(-20px);background:rgba(255,59,92,.12);border:1px solid var(--red);border-radius:8px;padding:14px 22px;display:flex;align-items:center;gap:14px;z-index:400;opacity:0;pointer-events:none;transition:all .25s;box-shadow:0 0 30px rgba(255,59,92,.2);min-width:320px}
+  .deny-alert.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .deny-icon{width:28px;height:28px;border:1.5px solid var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--red);font-weight:600;font-family:var(--mono);flex-shrink:0;animation:flashRed 1s infinite}
+  @keyframes flashRed{0%,100%{opacity:1}50%{opacity:.4}}
+  .deny-text{display:flex;flex-direction:column;gap:2px}
+  .deny-title{font-family:var(--mono);font-size:11px;color:var(--red);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+  .deny-detail{font-family:var(--mono);font-size:12px;color:var(--text)}
+
+  /* ---- TOAST ---- */
+  #toast{position:fixed;bottom:28px;right:28px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px 18px;font-family:var(--mono);font-size:12px;color:var(--text);transform:translateY(80px);opacity:0;transition:all .25s;z-index:9999;max-width:320px}
+  #toast.show{transform:translateY(0);opacity:1}
+
+  @media(max-width:1100px){.machines-grid{grid-template-columns:1fr 1fr}.stat-bar{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:700px){main{padding:16px}.machines-grid{grid-template-columns:1fr}.stat-bar{grid-template-columns:repeat(2,1fr)}.quick-add{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div>
+      <div class="logo-text">Access Control</div>
+      <div class="logo-sub">Workshop System</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Audible alert on denied scans">🔔 <span id="soundLabel">Alerts Off</span></button>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="page-title">Dashboard Overview</div>
+  <div class="section-heading">Workshop Access Control</div>
+
+  <div class="stat-bar">
+    <div class="stat-card"><div class="stat-label">Total UIDs</div><div class="stat-value" id="statTotal">—</div><div class="stat-sub" id="statTotalSub"></div></div>
+    <div class="stat-card"><div class="stat-label">Authorised</div><div class="stat-value green" id="statGranted">—</div><div class="stat-sub" id="statGrantedSub"></div></div>
+    <div class="stat-card"><div class="stat-label">Total Scans</div><div class="stat-value" id="statScans">—</div><div class="stat-sub" id="statScansSub">Last 200 logs</div></div>
+    <div class="stat-card"><div class="stat-label">Denied</div><div class="stat-value red" id="statDenied">—</div><div class="stat-sub" id="statDeniedSub"></div></div>
+  </div>
+
+  <div class="quick-add">
+    <span class="quick-add-label">Quick Add</span>
+    <input class="input-uid" id="qa-uid" placeholder="UID e.g. C761F803" maxlength="12" onkeydown="if(event.key==='Enter')quickAdd()" style="flex:1;min-width:120px">
+    <input class="input-name" id="qa-name" placeholder="Person's name" onkeydown="if(event.key==='Enter')quickAdd()" style="flex:1.5;min-width:140px">
+    <div class="machine-pick" id="qaMachinePick"></div>
+    <button class="btn-add" onclick="quickAdd()">+ Add</button>
+  </div>
+
+  <div class="search-row">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="searchInput" placeholder="Search users by name or UID..." oninput="onSearchInput(this.value)">
+    </div>
+  </div>
+
+  <div class="machines-grid" id="machinesGrid"></div>
+
+  <div class="bottom-section">
+    <div class="section-header">
+      <div class="tabs-row" id="tabsRow">
+        <button class="tab-btn active" onclick="switchTab('log',this)">Activity Log</button>
+        <button class="tab-btn" onclick="switchTab('usage',this)">Usage by Person</button>
+        <button class="tab-btn" onclick="switchTab('charts',this)">Analytics</button>
+      </div>
+      <div class="action-row">
+        <div class="filter-group">
+          <span class="filter-group-label">Machine</span>
+          <div class="filter-row" id="filterRow"></div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-group-label">Range</span>
+          <div class="filter-row">
+            <button class="filter-btn active" onclick="setRange('all',this)">All</button>
+            <button class="filter-btn" onclick="setRange('today',this)">Today</button>
+            <button class="filter-btn" onclick="setRange('week',this)">7d</button>
+            <button class="filter-btn" onclick="setRange('month',this)">30d</button>
+          </div>
+        </div>
+        <button class="btn-export" onclick="exportCSV()" title="Export visible logs to CSV">↓ Export</button>
+        <button class="btn-clear-logs" onclick="openClearModal()">⌫ Clear Logs</button>
+      </div>
+    </div>
+    <div id="tabContent"></div>
+  </div>
+</main>
+
+<!-- DENY ALERT BANNER -->
+<div class="deny-alert" id="denyAlert">
+  <div class="deny-icon">!</div>
+  <div class="deny-text">
+    <div class="deny-title">Access Denied</div>
+    <div class="deny-detail"><span class="deny-name"></span> @ <span class="deny-machine"></span></div>
+  </div>
+</div>
+
+<!-- CLEAR LOGS MODAL -->
+<div class="modal-overlay" id="clearModal">
+  <div class="modal">
+    <div class="modal-title">Clear Logs</div>
+    <div class="modal-body">Choose which logs to delete. This cannot be undone.</div>
+    <div class="clear-modal-opts" id="clearOpts"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeClearModal()">Cancel</button>
+      <button class="btn-confirm-delete" onclick="confirmClearLogs()">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-title">Confirm Delete</div>
+    <div class="modal-body">
+      Remove <span class="modal-uid" id="modalName"></span>
+      (<span class="modal-uid" id="modalUID"></span>) from
+      <span id="modalMachine"></span>? This will immediately revoke access.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm-delete" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, remove, onValue, query, limitToLast }
+                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ================================================================
+//  FIREBASE CONFIG
+// ================================================================
+const firebaseConfig = {
+  apiKey:            "AIzaSyDbbCMdpKYcBMtgsez_TzclFI0MOpQbSLM",
+  authDomain:        "rfid-access-1ae01.firebaseapp.com",
+  databaseURL:       "https://rfid-access-1ae01-default-rtdb.firebaseio.com/",
+  projectId:         "rfid-access-1ae01",
+  storageBucket:     "rfid-access-1ae01.appspot.com",
+  messagingSenderId: "1005043182254",
+  appId:             "1:1005043182254:web:2e365e857a8b96bdca9b3f"
+};
+// ================================================================
+
+const MACHINES        = ["machine_1","machine_2","machine_3"];
+const DEFAULT_LABELS  = { machine_1:"Machine 1", machine_2:"Machine 2", machine_3:"Machine 3" };
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// ---- State ----
+const uids       = { machine_1:{}, machine_2:{}, machine_3:{} };
+let names        = {};                       // { UID: "Name" }
+let machineNames = {...DEFAULT_LABELS};      // { machine_1: "Drill Press", ... }
+let heartbeats   = {};                       // { machine_1: timestamp }
+let logs         = [];
+
+let activeTab    = "log";
+let logFilter    = "all";
+let timeRange    = "all";
+let searchQuery  = "";
+let sortField    = "time";
+let sortDir      = "desc";
+let soundEnabled = false;
+let lastSeenLogKey = null;
+let firstLogLoad   = true;
+let pendingDel     = null;
+let chartInstances = {};
+
+// ---- Helpers ----
+const label   = m  => machineNames[m] || DEFAULT_LABELS[m] || m;
+const nameFor = id => names[id] || null;
+
+function relTime(ts) {
+  if (!ts) return "—";
+  const t = Date.parse(ts);
+  if (isNaN(t)) return "";
+  const sec = Math.floor((Date.now() - t) / 1000);
+  if (sec < 0)      return "just now";
+  if (sec < 60)     return `${sec}s ago`;
+  if (sec < 3600)   return `${Math.floor(sec/60)}m ago`;
+  if (sec < 86400)  return `${Math.floor(sec/3600)}h ago`;
+  if (sec < 604800) return `${Math.floor(sec/86400)}d ago`;
+  return new Date(t).toLocaleDateString();
+}
+
+function inTimeRange(ts) {
+  if (timeRange === "all") return true;
+  const t = Date.parse(ts);
+  if (isNaN(t)) return false;
+  const age = Date.now() - t;
+  if (timeRange === "today") return age < 86400000;
+  if (timeRange === "week")  return age < 7  * 86400000;
+  if (timeRange === "month") return age < 30 * 86400000;
+  return true;
+}
+
+function avatarHTML(uid, name) {
+  const text = name
+    ? name.trim().split(/\s+/).map(w => w[0]).slice(0,2).join("").toUpperCase()
+    : (uid || "??").slice(0,2).toUpperCase();
+  let h = 0;
+  for (let i = 0; i < (uid||"").length; i++) h = (h*31 + uid.charCodeAt(i)) % 360;
+  return `<div class="avatar" style="background:hsl(${h},45%,22%);color:hsl(${h},70%,75%);border:1px solid hsl(${h},50%,38%)">${text}</div>`;
+}
+
+function heartbeatStatus(machine) {
+  const ts = heartbeats[machine];
+  if (!ts) return { cls:"", text:"Awaiting heartbeat" };
+  const t = typeof ts === "number" ? ts : Date.parse(ts);
+  if (isNaN(t)) return { cls:"", text:"Awaiting heartbeat" };
+  const age = (Date.now() - t) / 1000;
+  if (age < 120)  return { cls:"green", text:"Online" };
+  if (age < 300)  return { cls:"amber", text:`Stale (${Math.floor(age/60)}m)` };
+  return            { cls:"red",   text:"Offline" };
+}
+
+function matchesSearch(uid) {
+  if (!searchQuery) return true;
+  const q = searchQuery.toLowerCase();
+  const n = (names[uid] || "").toLowerCase();
+  return uid.toLowerCase().includes(q) || n.includes(q);
+}
+
+// ---- Connection indicator ----
+onValue(ref(db, ".info/connected"), snap => {
+  const on = snap.val();
+  document.getElementById("statusDot").className    = on ? "status-dot connected" : "status-dot";
+  document.getElementById("statusText").textContent = on ? "Connected" : "Disconnected";
+});
+
+// ---- Watch /names ----
+onValue(ref(db, "names"), snap => {
+  names = {};
+  if (snap.exists()) snap.forEach(c => { names[c.key] = c.val(); });
+  renderMachines();
+  renderTab();
+});
+
+// ---- Watch /machineNames (custom labels) ----
+onValue(ref(db, "machineNames"), snap => {
+  machineNames = {...DEFAULT_LABELS};
+  if (snap.exists()) snap.forEach(c => { if (c.val()) machineNames[c.key] = c.val(); });
+  renderMachines();
+  renderFilters();
+  renderClearOpts();
+  renderQuickAddPick();
+  renderTab();
+});
+
+// ---- Watch /heartbeat (per-machine liveness) ----
+onValue(ref(db, "heartbeat"), snap => {
+  heartbeats = {};
+  if (snap.exists()) {
+    snap.forEach(c => {
+      const v = c.val();
+      if (v && typeof v === "object") heartbeats[c.key] = v.timestamp || v.ts || v.last || null;
+      else                              heartbeats[c.key] = v;
+    });
+  }
+  renderMachines();
+});
+// Re-evaluate freshness every 30s
+setInterval(() => { renderMachines(); if (activeTab === "log") renderTab(); }, 30000);
+
+// ---- Watch UIDs per machine ----
+MACHINES.forEach(m => {
+  onValue(ref(db, m), snap => {
+    uids[m] = {};
+    if (snap.exists()) {
+      snap.forEach(c => {
+        if (c.key === "logs") return;
+        if (typeof c.val() === "boolean") uids[m][c.key] = c.val();
+      });
+    }
+    renderMachines();
+    updateStats();
+  });
+});
+
+// ---- Watch /logs ----
+onValue(query(ref(db, "logs"), limitToLast(200)), snap => {
+  logs = [];
+  if (snap.exists()) {
+    snap.forEach(c => {
+      const s = c.val();
+      if (!s || typeof s !== "object") return;
+      logs.push({
+        key:       c.key,
+        uid:       s.uid       || "UNKNOWN",
+        result:    s.result    || "DENIED",
+        timestamp: s.timestamp || "",
+        machine:   s.machine   || null
+      });
+    });
+  }
+  logs.reverse();
+  if (firstLogLoad) {
+    firstLogLoad = false;
+    lastSeenLogKey = logs[0]?.key ?? null;
+  } else {
+    checkForNewDeny();
+  }
+  renderTab();
+  updateStats();
+});
+
+function checkForNewDeny() {
+  if (!logs.length) return;
+  const latest = logs[0];
+  if (latest.key !== lastSeenLogKey && latest.result === "DENIED") {
+    showDenyAlert(latest);
+    beep();
+  }
+  lastSeenLogKey = latest.key;
+}
+
+function showDenyAlert(l) {
+  const el = document.getElementById("denyAlert");
+  el.querySelector(".deny-name").textContent    = nameFor(l.uid) || l.uid;
+  el.querySelector(".deny-machine").textContent = label(l.machine) || "—";
+  el.classList.add("show");
+  clearTimeout(showDenyAlert._t);
+  showDenyAlert._t = setTimeout(() => el.classList.remove("show"), 4500);
+}
+
+let audioCtx;
+function beep() {
+  if (!soundEnabled) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value = 880; o.type = "sine";
+    g.gain.setValueAtTime(0, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+    o.start(); o.stop(audioCtx.currentTime + 0.35);
+    setTimeout(() => {
+      const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+      o2.connect(g2); g2.connect(audioCtx.destination);
+      o2.frequency.value = 660; o2.type = "sine";
+      g2.gain.setValueAtTime(0, audioCtx.currentTime);
+      g2.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+      g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      o2.start(); o2.stop(audioCtx.currentTime + 0.35);
+    }, 200);
+  } catch(e){}
+}
+
+// ---- Render: Quick Add multi-machine picker ----
+function renderQuickAddPick() {
+  const el = document.getElementById("qaMachinePick");
+  el.innerHTML = MACHINES.map(m =>
+    `<label><input type="checkbox" data-m="${m}" checked><span>${label(m)}</span></label>`
+  ).join("");
+}
+
+// ---- Render: filter buttons (use custom machine names) ----
+function renderFilters() {
+  const el = document.getElementById("filterRow");
+  const btns = [
+    `<button class="filter-btn ${logFilter==='all'?'active':''}" onclick="setFilter('all',this)">All</button>`,
+    ...MACHINES.map(m =>
+      `<button class="filter-btn ${logFilter===m?'active':''}" onclick="setFilter('${m}',this)">${label(m)}</button>`
+    )
+  ];
+  el.innerHTML = btns.join("");
+}
+
+// ---- Render: clear logs modal options ----
+function renderClearOpts() {
+  const el = document.getElementById("clearOpts");
+  el.innerHTML = `
+    <label class="clear-opt">
+      <input type="radio" name="clearOpt" value="all" checked>
+      <div>
+        <div class="clear-opt-label">All logs</div>
+        <div class="clear-opt-sub">Removes entire /logs path</div>
+      </div>
+    </label>
+    ${MACHINES.map(m => `
+      <label class="clear-opt">
+        <input type="radio" name="clearOpt" value="${m}">
+        <div>
+          <div class="clear-opt-label">${label(m)} only</div>
+          <div class="clear-opt-sub">Removes logs where machine = ${m}</div>
+        </div>
+      </label>
+    `).join("")}
+  `;
+}
+
+// ---- Render: machine cards ----
+function renderMachines() {
+  const grid = document.getElementById("machinesGrid");
+  grid.innerHTML = "";
+  MACHINES.forEach(machine => {
+    let entries = Object.entries(uids[machine] || {});
+    if (searchQuery) entries = entries.filter(([uid]) => matchesSearch(uid));
+    const count   = Object.keys(uids[machine] || {}).length;
+    const shown   = entries.length;
+    const hb      = heartbeatStatus(machine);
+
+    const rows = !shown
+      ? `<div class="empty-state">${searchQuery ? "No matches" : "No UIDs registered"}</div>`
+      : entries.map(([uid, granted]) => {
+          const person = nameFor(uid);
+          return `
+            <div class="uid-row">
+              ${avatarHTML(uid, person)}
+              <div class="uid-info">
+                <div class="uid-person" onclick="editUserName('${uid}', this)" title="Click to edit">${person || uid}</div>
+                ${person ? `<div class="uid-hex">${uid}</div>` : ""}
+              </div>
+              <label class="toggle-wrap" title="${granted?"Revoke":"Grant"} access">
+                <input type="checkbox" ${granted?"checked":""}
+                  onchange="toggleUID('${machine}','${uid}',this.checked)">
+                <span class="toggle-track"></span>
+              </label>
+              <button class="btn-delete" onclick="openModal('${machine}','${uid}')">×</button>
+            </div>`;
+        }).join("");
+
+    const card = document.createElement("div");
+    card.className = "machine-card";
+    card.innerHTML = `
+      <div class="machine-header">
+        <div class="machine-header-left">
+          <div class="machine-name" onclick="editMachineName('${machine}', this)" title="Click to rename">${label(machine)}</div>
+        </div>
+        <div class="machine-hb" title="${hb.text}">
+          <span class="hb-dot ${hb.cls}"></span>
+          <span>${hb.text}</span>
+        </div>
+        <div class="machine-count">${count} UID${count!==1?"s":""}</div>
+      </div>
+      <div class="machine-body">${rows}</div>
+      <div class="add-uid-form">
+        <input class="input-uid" id="inp-uid-${machine}"
+          placeholder="UID e.g. C761F803" maxlength="12"
+          onkeydown="if(event.key==='Enter')addUID('${machine}')">
+        <input class="input-name" id="inp-name-${machine}"
+          placeholder="Person's name"
+          onkeydown="if(event.key==='Enter')addUID('${machine}')">
+        <button class="btn-add" onclick="addUID('${machine}')">+ Add</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ---- Filtered logs (machine + range + search) ----
+function filteredLogs() {
+  return logs.filter(s => {
+    if (logFilter !== "all" && s.machine !== logFilter) return false;
+    if (!inTimeRange(s.timestamp))                       return false;
+    if (searchQuery && !matchesSearch(s.uid))            return false;
+    return true;
+  });
+}
+
+// ---- Render active tab ----
+function renderTab() {
+  if (activeTab === "log")    renderLog();
+  else if (activeTab === "usage") renderUsage();
+  else                            renderCharts();
+}
+
+// ---- Activity Log ----
+function renderLog() {
+  const el = document.getElementById("tabContent");
+  let entries = filteredLogs();
+
+  entries.sort((a,b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    let av, bv;
+    switch (sortField) {
+      case "person":  av = (names[a.uid]||a.uid).toLowerCase(); bv = (names[b.uid]||b.uid).toLowerCase(); break;
+      case "machine": av = label(a.machine)||""; bv = label(b.machine)||""; break;
+      case "result":  av = a.result; bv = b.result; break;
+      case "time":
+      default:        av = Date.parse(a.timestamp)||0; bv = Date.parse(b.timestamp)||0;
+    }
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+
+  entries = entries.slice(0, 150);
+
+  if (!entries.length) {
+    el.innerHTML = `<div class="section-empty">No activity matches current filters</div>`;
+    return;
+  }
+
+  const arr = sortDir === "asc" ? "▲" : "▼";
+  const sortCls = f => sortField === f ? "sort-active" : "";
+  const sortArr = f => sortField === f ? `<span class="sort-arr">${arr}</span>` : `<span class="sort-arr">▼</span>`;
+
+  el.innerHTML = `
+    <table class="log-table">
+      <thead><tr>
+        <th class="sortable ${sortCls('person')}"  onclick="setSort('person')">Person${sortArr('person')}</th>
+        <th class="sortable ${sortCls('machine')}" onclick="setSort('machine')">Machine${sortArr('machine')}</th>
+        <th class="sortable ${sortCls('result')}"  onclick="setSort('result')">Result${sortArr('result')}</th>
+        <th class="sortable ${sortCls('time')}"    onclick="setSort('time')">Time${sortArr('time')}</th>
+      </tr></thead>
+      <tbody>${entries.map(s => {
+        const person  = nameFor(s.uid);
+        const badge   = s.result === "GRANTED"
+          ? `<span class="badge badge-granted">Granted</span>`
+          : `<span class="badge badge-denied">Denied</span>`;
+        const machine = s.machine
+          ? `<span class="log-machine">${label(s.machine)}</span>`
+          : `<span style="color:var(--muted);font-family:var(--mono);font-size:11px">—</span>`;
+        return `<tr>
+          <td>
+            <div class="log-person-wrap">
+              ${avatarHTML(s.uid, person)}
+              <div>
+                <div class="log-person">${person || s.uid}</div>
+                ${person ? `<div class="log-uid-sub">${s.uid}</div>` : ""}
+              </div>
+            </div>
+          </td>
+          <td>${machine}</td>
+          <td>${badge}</td>
+          <td>
+            <div class="log-time" title="${s.timestamp || ''}">${s.timestamp || "—"}</div>
+            <div class="log-time-rel">${relTime(s.timestamp)}</div>
+          </td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+}
+
+// ---- Usage by Person ----
+function renderUsage() {
+  const el      = document.getElementById("tabContent");
+  const stats   = {};
+  const entries = filteredLogs();
+
+  entries.forEach(s => {
+    if (!stats[s.uid]) stats[s.uid] = { granted:0, denied:0, last:"" };
+    if (s.result === "GRANTED") stats[s.uid].granted++;
+    else                        stats[s.uid].denied++;
+    if (!stats[s.uid].last) stats[s.uid].last = s.timestamp;
+  });
+
+  const keys = Object.keys(stats);
+  if (!keys.length) {
+    el.innerHTML = `<div class="section-empty">No usage data matches current filters</div>`;
+    return;
+  }
+
+  keys.sort((a,b) =>
+    (stats[b].granted + stats[b].denied) - (stats[a].granted + stats[a].denied)
+  );
+
+  el.innerHTML = `<div class="usage-grid">${keys.map(uid => {
+    const s      = stats[uid];
+    const total  = s.granted + s.denied;
+    const person = nameFor(uid);
+    return `<div class="usage-card">
+      <div class="usage-card-top">
+        ${avatarHTML(uid, person)}
+        <div class="usage-card-body">
+          <div class="usage-person">${person || uid}</div>
+          ${person ? `<div class="usage-uid-sub">${uid}</div>` : `<div class="usage-uid-sub">No name set</div>`}
+        </div>
+      </div>
+      <div class="usage-stats">
+        <div class="usage-stat g">
+          <span class="num">${s.granted}</span>
+          <span class="lbl">Granted</span>
+        </div>
+        <div class="usage-stat r">
+          <span class="num">${s.denied}</span>
+          <span class="lbl">Denied</span>
+        </div>
+        <div class="usage-stat">
+          <span class="num" style="color:var(--accent)">${total}</span>
+          <span class="lbl">Total</span>
+        </div>
+      </div>
+      <div class="usage-last">Last seen: ${s.last ? `${s.last} (${relTime(s.last)})` : "—"}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+// ---- Analytics charts ----
+function chartOpts(extra = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: "#c8d0e0", font: { family: "'IBM Plex Mono', monospace", size: 10 } } },
+      tooltip: { backgroundColor: "#181c23", borderColor: "#2a3040", borderWidth: 1, titleColor: "#c8d0e0", bodyColor: "#c8d0e0" }
+    },
+    scales: extra.noScales ? {} : {
+      x: { ticks: { color: "#4a5568", font: { family: "'IBM Plex Mono', monospace", size: 10 } }, grid: { color: "#1e2330" } },
+      y: { ticks: { color: "#4a5568", font: { family: "'IBM Plex Mono', monospace", size: 10 } }, grid: { color: "#1e2330" }, beginAtZero: true, precision: 0 }
+    },
+    ...extra.overrides
+  };
+}
+
+function renderCharts() {
+  const el = document.getElementById("tabContent");
+  el.innerHTML = `
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Scans — Last 14 Days</div>
+        <canvas id="chartDays"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Granted vs Denied</div>
+        <canvas id="chartGD"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Scans by Machine</div>
+        <canvas id="chartMachine"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Scans by Hour of Day</div>
+        <canvas id="chartHour"></canvas>
+      </div>
+    </div>
+  `;
+
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  if (typeof Chart === "undefined") {
+    el.innerHTML = `<div class="section-empty">Chart library failed to load. Check your internet connection.</div>`;
+    return;
+  }
+
+  const rows = filteredLogs();
+
+  // 1) Days
+  const days = {};
+  const dayLabels = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const k = d.toISOString().slice(0,10);
+    days[k] = 0;
+    dayLabels.push(k.slice(5));
+  }
+  rows.forEach(s => {
+    const t = Date.parse(s.timestamp);
+    if (isNaN(t)) return;
+    const k = new Date(t).toISOString().slice(0,10);
+    if (k in days) days[k]++;
+  });
+  chartInstances.days = new Chart(document.getElementById("chartDays"), {
+    type: "bar",
+    data: {
+      labels: dayLabels,
+      datasets: [{
+        label: "Scans",
+        data: Object.values(days),
+        backgroundColor: "rgba(0,212,255,.55)",
+        borderColor: "#00d4ff",
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: chartOpts({ overrides: { plugins: { legend: { display: false }, tooltip: { backgroundColor: "#181c23", borderColor: "#2a3040", borderWidth: 1, titleColor: "#c8d0e0", bodyColor: "#c8d0e0" } } } })
+  });
+
+  // 2) Granted vs Denied
+  let g = 0, d = 0;
+  rows.forEach(s => s.result === "GRANTED" ? g++ : d++);
+  chartInstances.gd = new Chart(document.getElementById("chartGD"), {
+    type: "doughnut",
+    data: {
+      labels: ["Granted","Denied"],
+      datasets: [{
+        data: [g, d],
+        backgroundColor: ["rgba(0,232,122,.7)","rgba(255,59,92,.7)"],
+        borderColor: ["#00e87a","#ff3b5c"],
+        borderWidth: 1
+      }]
+    },
+    options: chartOpts({ noScales: true })
+  });
+
+  // 3) By Machine
+  const byM = { machine_1:0, machine_2:0, machine_3:0 };
+  rows.forEach(s => { if (s.machine && byM[s.machine] !== undefined) byM[s.machine]++; });
+  chartInstances.machine = new Chart(document.getElementById("chartMachine"), {
+    type: "bar",
+    data: {
+      labels: MACHINES.map(m => label(m)),
+      datasets: [{
+        label: "Scans",
+        data: MACHINES.map(m => byM[m]),
+        backgroundColor: ["rgba(0,212,255,.5)","rgba(0,232,122,.5)","rgba(255,176,32,.5)"],
+        borderColor:     ["#00d4ff","#00e87a","#ffb020"],
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: chartOpts({ overrides: { indexAxis: "y", plugins: { legend: { display: false } } } })
+  });
+
+  // 4) By hour of day
+  const hours = Array(24).fill(0);
+  rows.forEach(s => {
+    const t = Date.parse(s.timestamp);
+    if (isNaN(t)) return;
+    hours[new Date(t).getHours()]++;
+  });
+  chartInstances.hour = new Chart(document.getElementById("chartHour"), {
+    type: "bar",
+    data: {
+      labels: hours.map((_,i) => String(i).padStart(2,"0")),
+      datasets: [{
+        label: "Scans",
+        data: hours,
+        backgroundColor: "rgba(255,176,32,.5)",
+        borderColor: "#ffb020",
+        borderWidth: 1,
+        borderRadius: 2
+      }]
+    },
+    options: chartOpts({ overrides: { plugins: { legend: { display: false } } } })
+  });
+}
+
+// ---- Stats bar ----
+function updateStats() {
+  let total = 0, granted = 0;
+  MACHINES.forEach(m => Object.values(uids[m]||{}).forEach(v => { total++; if (v) granted++; }));
+  const denied = logs.filter(s => s.result !== "GRANTED").length;
+  const todayCount = logs.filter(s => inTimeRangeAbs(s.timestamp, 86400000)).length;
+
+  document.getElementById("statTotal").textContent      = total   || "—";
+  document.getElementById("statGranted").textContent    = granted || "—";
+  document.getElementById("statScans").textContent      = logs.length || "—";
+  document.getElementById("statDenied").textContent     = denied || "—";
+  document.getElementById("statTotalSub").textContent   = `${MACHINES.length} machines`;
+  document.getElementById("statGrantedSub").textContent = total ? `${Math.round(granted/total*100)}% of total` : "";
+  document.getElementById("statDeniedSub").textContent  = logs.length ? `${Math.round(denied/logs.length*100)}% of scans` : "";
+  document.getElementById("statScansSub").textContent   = `${todayCount} today`;
+}
+
+function inTimeRangeAbs(ts, ms) {
+  const t = Date.parse(ts);
+  if (isNaN(t)) return false;
+  return (Date.now() - t) < ms;
+}
+
+// ---- Toggle UID ----
+window.toggleUID = async (machine, uid, value) => {
+  try {
+    await set(ref(db, `${machine}/${uid}`), value);
+    toast(`${nameFor(uid)||uid} → ${value?"access granted":"access revoked"} on ${label(machine)}`);
+  } catch(e) { toast("Error: "+e.message, true); }
+};
+
+// ---- Add UID via per-machine form ----
+window.addUID = async (machine) => {
+  const uidInp  = document.getElementById(`inp-uid-${machine}`);
+  const nameInp = document.getElementById(`inp-name-${machine}`);
+  const uid     = uidInp.value.trim().toUpperCase();
+  const name    = nameInp.value.trim();
+
+  if (uid.length < 4)                     { toast("Enter a valid UID (min 4 chars)", true); return; }
+  if (uids[machine]?.[uid] !== undefined) { toast("UID already exists on this machine", true); return; }
+
+  try {
+    await set(ref(db, `${machine}/${uid}`), true);
+    if (name) await set(ref(db, `names/${uid}`), name);
+    uidInp.value = ""; nameInp.value = "";
+    toast(`Added ${name||uid} to ${label(machine)}`);
+  } catch(e) { toast("Error: "+e.message, true); }
+};
+
+// ---- Quick Add multi-machine ----
+window.quickAdd = async () => {
+  const uidInp  = document.getElementById("qa-uid");
+  const nameInp = document.getElementById("qa-name");
+  const uid     = uidInp.value.trim().toUpperCase();
+  const name    = nameInp.value.trim();
+  const picks   = [...document.querySelectorAll("#qaMachinePick input:checked")].map(i => i.dataset.m);
+
+  if (uid.length < 4) { toast("Enter a valid UID (min 4 chars)", true); return; }
+  if (!picks.length)  { toast("Select at least one machine", true); return; }
+
+  try {
+    const targets = picks.filter(m => uids[m]?.[uid] === undefined);
+    const skipped = picks.length - targets.length;
+    if (!targets.length) { toast("UID already exists on selected machines", true); return; }
+
+    await Promise.all(targets.map(m => set(ref(db, `${m}/${uid}`), true)));
+    if (name) await set(ref(db, `names/${uid}`), name);
+
+    uidInp.value = ""; nameInp.value = "";
+    const summary = targets.map(m => label(m)).join(", ");
+    toast(`Added ${name||uid} to ${summary}${skipped?` (skipped ${skipped} duplicate)`:""}`);
+  } catch(e) { toast("Error: "+e.message, true); }
+};
+
+// ---- Inline editing: user name ----
+window.editUserName = (uid, el) => {
+  if (el.querySelector("input")) return;
+  const original = nameFor(uid) || "";
+  el.innerHTML = `<input class="uid-person-input" type="text" value="${original.replace(/"/g,'&quot;')}" placeholder="Name (blank to clear)">`;
+  const input = el.querySelector("input");
+  input.focus();
+  input.select();
+  let saved = false;
+  const save = async () => {
+    if (saved) return;
+    saved = true;
+    const newName = input.value.trim();
+    try {
+      if (newName) {
+        await set(ref(db, `names/${uid}`), newName);
+        toast(`Updated name to ${newName}`);
+      } else if (original) {
+        await remove(ref(db, `names/${uid}`));
+        toast(`Cleared name for ${uid}`);
+      }
+    } catch(e) { toast("Error: "+e.message, true); }
+  };
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter")  { e.preventDefault(); input.blur(); }
+    if (e.key === "Escape") { saved = true; renderMachines(); }
+  });
+};
+
+// ---- Inline editing: machine name ----
+window.editMachineName = (machine, el) => {
+  if (el.querySelector("input")) return;
+  const original = label(machine);
+  el.innerHTML = `<input class="machine-name-input" type="text" value="${original.replace(/"/g,'&quot;')}" maxlength="24">`;
+  const input = el.querySelector("input");
+  input.focus(); input.select();
+  let saved = false;
+  const save = async () => {
+    if (saved) return;
+    saved = true;
+    const newLabel = input.value.trim();
+    try {
+      if (newLabel && newLabel !== DEFAULT_LABELS[machine]) {
+        await set(ref(db, `machineNames/${machine}`), newLabel);
+        toast(`Renamed to ${newLabel}`);
+      } else {
+        await remove(ref(db, `machineNames/${machine}`));
+        toast(`Reset to ${DEFAULT_LABELS[machine]}`);
+      }
+    } catch(e) { toast("Error: "+e.message, true); }
+  };
+  input.addEventListener("blur", save);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter")  { e.preventDefault(); input.blur(); }
+    if (e.key === "Escape") { saved = true; renderMachines(); }
+  });
+};
+
+// ---- Delete modal ----
+window.openModal = (machine, uid) => {
+  pendingDel = { machine, uid };
+  const person = nameFor(uid);
+  document.getElementById("modalName").textContent    = person || "";
+  document.getElementById("modalUID").textContent     = uid;
+  document.getElementById("modalMachine").textContent = label(machine);
+  document.getElementById("modalName").style.display  = person ? "" : "none";
+  document.getElementById("deleteModal").classList.add("open");
+};
+window.closeModal = () => {
+  pendingDel = null;
+  document.getElementById("deleteModal").classList.remove("open");
+};
+window.confirmDelete = async () => {
+  if (!pendingDel) return;
+  const { machine, uid } = pendingDel;
+  try {
+    await remove(ref(db, `${machine}/${uid}`));
+    toast(`Deleted ${nameFor(uid)||uid} from ${label(machine)}`);
+  } catch(e) { toast("Error: "+e.message, true); }
+  closeModal();
+};
+document.getElementById("deleteModal").addEventListener("click", e => {
+  if (e.target.id === "deleteModal") closeModal();
+});
+
+// ---- Clear logs modal ----
+window.openClearModal = () => {
+  document.querySelector('input[name="clearOpt"][value="all"]').checked = true;
+  document.getElementById("clearModal").classList.add("open");
+};
+window.closeClearModal = () => {
+  document.getElementById("clearModal").classList.remove("open");
+};
+window.confirmClearLogs = async () => {
+  const selected = document.querySelector('input[name="clearOpt"]:checked').value;
+  try {
+    if (selected === "all") {
+      await remove(ref(db, "logs"));
+      toast("All logs cleared");
+    } else {
+      const toDelete = logs.filter(s => s.machine === selected);
+      if (!toDelete.length) {
+        toast("No logs found for " + label(selected), true);
+        closeClearModal();
+        return;
+      }
+      await Promise.all(toDelete.map(s => remove(ref(db, `logs/${s.key}`))));
+      toast(`Cleared ${toDelete.length} log${toDelete.length!==1?"s":""} for ${label(selected)}`);
+    }
+  } catch(e) { toast("Error: "+e.message, true); }
+  closeClearModal();
+};
+document.getElementById("clearModal").addEventListener("click", e => {
+  if (e.target.id === "clearModal") closeClearModal();
+});
+
+// ---- CSV Export ----
+window.exportCSV = () => {
+  const rows = filteredLogs();
+  if (!rows.length) { toast("No logs to export with current filters", true); return; }
+
+  const esc = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  const header = ["UID","Name","Machine","Result","Timestamp"];
+  const lines = [header.join(",")];
+  rows.forEach(s => {
+    lines.push([
+      s.uid, names[s.uid] || "", label(s.machine), s.result, s.timestamp
+    ].map(esc).join(","));
+  });
+
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = `access-log-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`Exported ${rows.length} log${rows.length!==1?"s":""}`);
+};
+
+// ---- Tab + filters ----
+window.switchTab = (tab, btn) => {
+  activeTab = tab;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderTab();
+};
+window.setFilter = (filter, btn) => {
+  logFilter = filter;
+  document.querySelectorAll("#filterRow .filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderTab();
+};
+window.setRange = (range, btn) => {
+  timeRange = range;
+  btn.parentElement.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderTab();
+};
+window.setSort = (field) => {
+  if (sortField === field) sortDir = sortDir === "asc" ? "desc" : "asc";
+  else { sortField = field; sortDir = "desc"; }
+  renderTab();
+};
+window.onSearchInput = (v) => {
+  searchQuery = v.trim();
+  renderMachines();
+  renderTab();
+};
+
+// ---- Sound toggle ----
+window.toggleSound = () => {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById("soundBtn");
+  const lbl = document.getElementById("soundLabel");
+  btn.classList.toggle("on", soundEnabled);
+  lbl.textContent = soundEnabled ? "Alerts On" : "Alerts Off";
+  localStorage.setItem("ac_sound", soundEnabled ? "1" : "0");
+  if (soundEnabled) beep();
+};
+
+// ---- Toast ----
+let tt;
+window.toast = (msg, isError = false) => {
+  const el = document.getElementById("toast");
+  el.textContent       = msg;
+  el.style.borderColor = isError ? "var(--red)" : "var(--border2)";
+  el.style.color       = isError ? "var(--red)" : "var(--text)";
+  el.classList.add("show");
+  clearTimeout(tt);
+  tt = setTimeout(() => el.classList.remove("show"), 3000);
+};
+
+// ---- Init ----
+soundEnabled = localStorage.getItem("ac_sound") === "1";
+document.getElementById("soundBtn").classList.toggle("on", soundEnabled);
+document.getElementById("soundLabel").textContent = soundEnabled ? "Alerts On" : "Alerts Off";
+
+renderFilters();
+renderClearOpts();
+renderQuickAddPick();
+renderMachines();
+renderTab();
+updateStats();
+</script>
+</body>
+</html>
