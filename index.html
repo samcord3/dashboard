@@ -478,7 +478,7 @@
   </div>
 
   <div class="stat-bar">
-    <div class="stat-card"><div class="stat-label">Total UIDs</div><div class="stat-value" id="statTotal">—</div><div class="stat-sub" id="statTotalSub"></div></div>
+    <div class="stat-card"><div class="stat-label">Total Students</div><div class="stat-value" id="statTotal">—</div><div class="stat-sub" id="statTotalSub"></div></div>
     <div class="stat-card"><div class="stat-label">Authorised</div><div class="stat-value green" id="statGranted">—</div><div class="stat-sub" id="statGrantedSub"></div></div>
     <div class="stat-card"><div class="stat-label">Total Scans</div><div class="stat-value" id="statScans">—</div><div class="stat-sub" id="statScansSub">Last 200 logs</div></div>
     <div class="stat-card"><div class="stat-label">Denied</div><div class="stat-value red" id="statDenied">—</div><div class="stat-sub" id="statDeniedSub"></div></div>
@@ -1106,7 +1106,7 @@ function renderMachines() {
     const tp      = !!twoPerson[machine];
 
     const rows = !shown
-      ? `<div class="empty-state">${searchQuery ? "No matches" : "No UIDs registered"}</div>`
+      ? `<div class="empty-state">${searchQuery ? "No matches" : "No students registered"}</div>`
       : entries.map(([uid, granted]) => {
           const person = nameFor(uid);
           // Show one tag per group — a user can belong to multiple
@@ -1143,7 +1143,7 @@ function renderMachines() {
           <span class="hb-dot ${hb.cls}"></span>
           <span>${hb.text}</span>
         </div>
-        <div class="machine-count">${count} UID${count!==1?"s":""}</div>
+        <div class="machine-count">${count} student${count!==1?"s":""}</div>
       </div>
       <div class="machine-body">${rows}</div>
       <div class="add-uid-form">
@@ -1799,16 +1799,23 @@ function renderAudit() {
 
 // ============ STATS ============
 function updateStats() {
-  let total = 0, granted = 0;
-  MACHINES.forEach(m => Object.values(uids[m]||{}).forEach(v => { total++; if (v) granted++; }));
+  // Count UNIQUE students across all machines (a student on 3 machines = 1 student)
+  const allStudents     = new Set();
+  const grantedStudents = new Set();
+  MACHINES.forEach(m => Object.entries(uids[m]||{}).forEach(([uid, v]) => {
+    allStudents.add(uid);
+    if (v) grantedStudents.add(uid);
+  }));
+  const total   = allStudents.size;
+  const granted = grantedStudents.size;
   const denied = logs.filter(s => s.result !== "GRANTED").length;
   const todayCount = logs.filter(s => inTimeRangeAbs(s.timestamp, 86400000)).length;
   document.getElementById("statTotal").textContent      = total   || "—";
   document.getElementById("statGranted").textContent    = granted || "—";
   document.getElementById("statScans").textContent      = logs.length || "—";
   document.getElementById("statDenied").textContent     = denied || "—";
-  document.getElementById("statTotalSub").textContent   = `${MACHINES.length} machines`;
-  document.getElementById("statGrantedSub").textContent = total ? `${Math.round(granted/total*100)}% of total` : "";
+  document.getElementById("statTotalSub").textContent   = `across ${MACHINES.length} machines`;
+  document.getElementById("statGrantedSub").textContent = total ? `${Math.round(granted/total*100)}% of students` : "";
   document.getElementById("statDeniedSub").textContent  = logs.length ? `${Math.round(denied/logs.length*100)}% of scans` : "";
   document.getElementById("statScansSub").textContent   = `${todayCount} today`;
 }
